@@ -1,0 +1,210 @@
+version: '3'
+x-postgres:
+  &postgres-common
+  image: "ankane/pgvector:v0.5.1"
+  user: postgres
+  healthcheck:
+    test: "exit 0"
+    interval: 2s
+    timeout: 12s
+    retries: 3
+
+services:
+  postgres:
+    <<: *postgres-common
+    container_name: "omnivore-postgres"
+    volumes:
+      - ${APP_DATA_DIR}/data/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=omnivore
+      - POSTGRES_DB=omnivore
+
+  migrate:
+    image: "ghcr.io/omnivore-app/sh-migrate:latest"
+    container_name: "omnivore-migrate"
+    command: '/bin/sh ./packages/db/setup.sh'
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=omnivore
+      - POSTGRES_DB=omnivore
+      - POSTGRES_HOST=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: "ghcr.io/omnivore-app/sh-backend:latest"
+    container_name: "omnivore-api"
+    ports:
+      - "4000:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 0.0.0.0 8080 || exit 1"]
+      interval: 15s
+      timeout: 90s
+      retries: 6
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=omnivore
+      - POSTGRES_DB=omnivore
+      - POSTGRES_HOST=postgres
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MINIO_ACCESS_KEY=minio
+      - MINIO_SECRET_KEY=miniominio
+      - AWS_S3_ENDPOINT_URL=http://minio:1010
+      - AWS_S3_BUCKET_NAME=omnivore
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  queue-processor:
+    image: "ghcr.io/omnivore-app/sh-queue-processor:latest"
+    container_name: "omnivore-queue-processor"
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=omnivore
+      - POSTGRES_DB=omnivore
+      - POSTGRES_HOST=postgres
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      api:
+        condition: service_started
+
+  web:
+    image: "ghcr.io/omnivore-app/sh-web:latest"
+    container_name: "omnivore-web"
+    ports:
+      - "${APP_PORT}:8080"
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=omnivore
+      - POSTGRES_DB=omnivore
+      - POSTGRES_HOST=postgres
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - tipi_main_network
+    labels:
+      traefik.enable: true
+      traefik.http.middlewares.omnivore-web-redirect.redirectscheme.scheme: https
+      traefik.http.services.omnivore.loadbalancer.server.port: 8080
+      traefik.http.routers.omnivore-insecure.rule: Host(`${APP_DOMAIN}`)
+      traefik.http.routers.omnivore-insecure.entrypoints: web
+      traefik.http.routers.omnivore-insecure.service: omnivore
+      traefik.http.routers.omnivore-insecure.middlewares: omnivore-web-redirect
+      traefik.http.routers.omnivore.rule: Host(`${APP_DOMAIN}`)
+      traefik.http.routers.omnivore.entrypoints: websecure
+      traefik.http.routers.omnivore.service: omnivore
+      traefik.http.routers.omnivore.tls.certresolver: myresolver
+      traefik.http.routers.omnivore-local-insecure.rule: Host(`omnivore.${LOCAL_DOMAIN}`)
+      traefik.http.routers.omnivore-local-insecure.entrypoints: web
+      traefik.http.routers.omnivore-local-insecure.service: omnivore
+      traefik.http.routers.omnivore-local-insecure.middlewares: omnivore-web-redirect
+      traefik.http.routers.omnivore-local.rule: Host(`omnivore.${LOCAL_DOMAIN}`)
+      traefik.http.routers.omnivore-local.entrypoints: websecure
+      traefik.http.routers.omnivore-local.service: omnivore
+      traefik.http.routers.omnivore-local.tls: true
+
+  image-proxy:
+    image: "ghcr.io/omnivore-app/sh-image-proxy:latest"
+    container_name: "omnivore-image-proxy"
+    ports:
+      - "7070:8080"
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=omnivore
+      - POSTGRES_DB=omnivore
+      - POSTGRES_HOST=postgres
+      - JWT_SECRET=${JWT_SECRET}
+
+  content-fetch:
+    image: "ghcr.io/omnivore-app/sh-content-fetch:latest"
+    container_name: "omnivore-content-fetch"
+    ports:
+      - "9090:8080"
+    environment:
+      - USE_FIREFOX=true
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=omnivore
+      - POSTGRES_DB=omnivore
+      - POSTGRES_HOST=postgres
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+  redis:
+    image: "redis:7.2.4"
+    container_name: "omnivore-redis"
+    expose:
+      - 6379
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+    volumes:
+      - ${APP_DATA_DIR}/data/redis:/data
+
+  minio:
+    image: minio/minio
+    expose:
+      - 1010
+    healthcheck:
+      test: [ "CMD", "mc", "ready", "local" ]
+      interval: 5s
+      timeout: 1s
+    environment:
+      - "MINIO_ACCESS_KEY=minio"
+      - "MINIO_SECRET_KEY=miniominio"
+      - "AWS_S3_ENDPOINT_URL=http://minio:1010"
+    command: server /data
+    volumes:
+      - ${APP_DATA_DIR}/data/minio:/data
+
+  createbuckets:
+    image: minio/mc
+    environment:
+      - MINIO_ACCESS_KEY=minio
+      - MINIO_SECRET_KEY=miniominio
+      - BUCKET_NAME=omnivore
+      - ENDPOINT=http://minio:9000
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/bash -c "
+      sleep 5;
+      until (/usr/bin/mc config host add myminio http://minio:9000 minio miniominio) do echo '...waiting...' && sleep 1; done;
+      /usr/bin/mc mb myminio/omnivore;
+      /usr/bin/mc anonymous set public myminio/omnivore;
+      exit 0;
+      "
+
+  mail-watch-server:
+    image: "ghcr.io/omnivore-app/sh-local-mail-watcher:latest"
+    container_name: "omnivore-mail-watch-server"
+    ports:
+      - "4398:8080"
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=omnivore
+      - POSTGRES_DB=omnivore
+      - POSTGRES_HOST=postgres
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy 

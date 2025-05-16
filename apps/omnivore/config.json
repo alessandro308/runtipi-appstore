@@ -1,0 +1,49 @@
+{
+  "name": "Omnivore",
+  "id": "omnivore",
+  "available": true,
+  "short_desc": "Open source read-it-later app",
+  "author": "Omnivore",
+  "port": 3000,
+  "categories": ["utilities", "featured"],
+  "description": "Omnivore is an open source read-it-later app that helps you save and organize your reading. It's a great alternative to Pocket, Instapaper, and other read-it-later services.",
+  "tipi_version": 1,
+  "version": "latest",
+  "source": "https://github.com/omnivore-app/omnivore",
+  "exposable": true,
+  "supported_architectures": ["arm64", "amd64"],
+  "form_fields": [
+    {
+      "type": "text",
+      "label": "Postgres Password",
+      "max": 50,
+      "min": 8,
+      "required": true,
+      "env_variable": "POSTGRES_PASSWORD"
+    },
+    {
+      "type": "text",
+      "label": "JWT Secret",
+      "max": 50,
+      "min": 32,
+      "required": true,
+      "env_variable": "JWT_SECRET"
+    },
+    {
+      "type": "text",
+      "label": "Admin Email",
+      "max": 50,
+      "min": 3,
+      "required": true,
+      "env_variable": "ADMIN_EMAIL"
+    },
+    {
+      "type": "password",
+      "label": "Admin Password",
+      "max": 50,
+      "min": 8,
+      "required": true,
+      "env_variable": "ADMIN_PASSWORD"
+    }
+  ]
+} 
