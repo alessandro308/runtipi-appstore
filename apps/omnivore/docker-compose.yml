@@ -15,6 +15,8 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_USER=omnivore
       - POSTGRES_DB=omnivore
+    networks:
+      - tipi_main_network
 
   migrate:
     image: "ghcr.io/omnivore-app/sh-migrate:latest"
@@ -28,6 +30,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - tipi_main_network
 
   api:
     image: "ghcr.io/omnivore-app/sh-backend:latest"
@@ -56,6 +60,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    networks:
+      - tipi_main_network
 
   queue-processor:
     image: "ghcr.io/omnivore-app/sh-queue-processor:latest"
@@ -71,6 +77,8 @@ services:
     depends_on:
       api:
         condition: service_started
+    networks:
+      - tipi_main_network
 
   web:
     image: "ghcr.io/omnivore-app/sh-web:latest"
@@ -110,6 +118,7 @@ services:
       traefik.http.routers.omnivore-local.entrypoints: websecure
       traefik.http.routers.omnivore-local.service: omnivore
       traefik.http.routers.omnivore-local.tls: true
+      runtipi.managed: true
 
   image-proxy:
     image: "ghcr.io/omnivore-app/sh-image-proxy:latest"
@@ -122,6 +131,8 @@ services:
       - POSTGRES_DB=omnivore
       - POSTGRES_HOST=postgres
       - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - tipi_main_network
 
   content-fetch:
     image: "ghcr.io/omnivore-app/sh-content-fetch:latest"
@@ -142,6 +153,8 @@ services:
         condition: service_healthy
       api:
         condition: service_healthy
+    networks:
+      - tipi_main_network
 
   redis:
     image: "redis:7.2.4"
@@ -152,6 +165,8 @@ services:
       test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
     volumes:
       - ${APP_DATA_DIR}/data/redis:/data
+    networks:
+      - tipi_main_network
 
   minio:
     image: minio/minio
@@ -168,6 +183,8 @@ services:
     command: server /data
     volumes:
       - ${APP_DATA_DIR}/data/minio:/data
+    networks:
+      - tipi_main_network
 
   createbuckets:
     image: minio/mc
@@ -187,6 +204,8 @@ services:
       /usr/bin/mc anonymous set public myminio/omnivore;
       exit 0;
       "
+    networks:
+      - tipi_main_network
 
   mail-watch-server:
     image: "ghcr.io/omnivore-app/sh-local-mail-watcher:latest"
@@ -203,4 +222,10 @@ services:
       - REDIS_PORT=6379
     depends_on:
       redis:
-        condition: service_healthy 
+        condition: service_healthy
+    networks:
+      - tipi_main_network
+
+networks:
+  tipi_main_network:
+    external: true 
