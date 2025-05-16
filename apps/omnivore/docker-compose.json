@@ -1,7 +1,7 @@
 {
     "services": [
       {
-        "name": "omnivore-postgres",
+        "name": "postgres",
         "image": "ankane/pgvector:v0.5.1",
         "environment": {
           "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
@@ -26,7 +26,7 @@
         "user": "postgres"
       },
       {
-        "name": "omnivore-migrate",
+        "name": "migrate",
         "image": "ghcr.io/omnivore-app/sh-migrate:latest",
         "command": "/bin/sh ./packages/db/setup.sh",
         "environment": {
@@ -42,7 +42,7 @@
         }
       },
       {
-        "name": "omnivore-api",
+        "name": "api",
         "image": "ghcr.io/omnivore-app/sh-backend:latest",
         "environment": {
           "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
@@ -73,7 +73,7 @@
         }
       },
       {
-        "name": "omnivore-queue-processor",
+        "name": "queue-processor",
         "image": "ghcr.io/omnivore-app/sh-queue-processor:latest",
         "environment": {
           "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
@@ -91,7 +91,7 @@
         }
       },
       {
-        "name": "omnivore-web",
+        "name": "web",
         "image": "ghcr.io/omnivore-app/sh-web:latest",
         "environment": {
           "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
@@ -111,7 +111,7 @@
         "isMain": true
       },
       {
-        "name": "omnivore-image-proxy",
+        "name": "image-proxy",
         "image": "ghcr.io/omnivore-app/sh-image-proxy:latest",
         "environment": {
           "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
@@ -123,7 +123,7 @@
         "internalPort": 8080
       },
       {
-        "name": "omnivore-content-fetch",
+        "name": "content-fetch",
         "image": "ghcr.io/omnivore-app/sh-content-fetch:latest",
         "environment": {
           "USE_FIREFOX": "true",
@@ -146,7 +146,7 @@
         }
       },
       {
-        "name": "omnivore-redis",
+        "name": "redis",
         "image": "redis:7.2.4",
         "volumes": [
           {
@@ -203,7 +203,7 @@
         }
       },
       {
-        "name": "omnivore-mail-watch-server",
+        "name": "mail-watch-server",
         "image": "ghcr.io/omnivore-app/sh-local-mail-watcher:latest",
         "environment": {
           "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
