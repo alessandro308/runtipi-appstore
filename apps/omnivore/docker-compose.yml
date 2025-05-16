@@ -1,17 +1,13 @@
 version: '3'
-x-postgres:
-  &postgres-common
-  image: "ankane/pgvector:v0.5.1"
-  user: postgres
-  healthcheck:
-    test: "exit 0"
-    interval: 2s
-    timeout: 12s
-    retries: 3
-
 services:
   postgres:
-    <<: *postgres-common
+    image: "ankane/pgvector:v0.5.1"
+    user: postgres
+    healthcheck:
+      test: "exit 0"
+      interval: 2s
+      timeout: 12s
+      retries: 3
     container_name: "omnivore-postgres"
     volumes:
       - ${APP_DATA_DIR}/data/postgres:/var/lib/postgresql/data
