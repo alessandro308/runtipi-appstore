@@ -1,225 +1,225 @@
 {
-    "services": [
-      {
-        "name": "postgres",
-        "image": "ankane/pgvector:v0.5.1",
-        "environment": {
-          "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
-          "POSTGRES_USER": "omnivore",
-          "POSTGRES_DB": "omnivore"
-        },
-        "volumes": [
-          {
-            "hostPath": "${APP_DATA_DIR}/data/postgres",
-            "containerPath": "/var/lib/postgresql/data",
-            "readOnly": false,
-            "shared": false,
-            "private": false
-          }
-        ],
-        "healthCheck": {
-          "test": "exit 0",
-          "interval": "2s",
-          "timeout": "12s",
-          "retries": 3
-        },
-        "user": "postgres"
+  "services": [
+    {
+      "name": "postgres",
+      "image": "ankane/pgvector:v0.5.1",
+      "environment": {
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+        "POSTGRES_USER": "omnivore",
+        "POSTGRES_DB": "omnivore"
       },
-      {
-        "name": "migrate",
-        "image": "ghcr.io/omnivore-app/sh-migrate:latest",
-        "command": "/bin/sh ./packages/db/setup.sh",
-        "environment": {
-          "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
-          "POSTGRES_USER": "omnivore",
-          "POSTGRES_DB": "omnivore",
-          "POSTGRES_HOST": "postgres"
-        },
-        "dependsOn": {
-          "postgres": {
-            "condition": "service_healthy"
-          }
+      "volumes": [
+        {
+          "hostPath": "postgres_data",
+          "containerPath": "/var/lib/postgresql/data",
+          "readOnly": false,
+          "shared": false,
+          "private": false
         }
+      ],
+      "healthCheck": {
+        "test": "exit 0",
+        "interval": "2s",
+        "timeout": "12s",
+        "retries": 3
       },
-      {
-        "name": "api",
-        "image": "ghcr.io/omnivore-app/sh-backend:latest",
-        "environment": {
-          "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
-          "POSTGRES_USER": "omnivore",
-          "POSTGRES_DB": "omnivore",
-          "POSTGRES_HOST": "postgres",
-          "JWT_SECRET": "${JWT_SECRET}",
-          "ADMIN_EMAIL": "${ADMIN_EMAIL}",
-          "ADMIN_PASSWORD": "${ADMIN_PASSWORD}",
-          "REDIS_HOST": "redis",
-          "REDIS_PORT": "6379",
-          "MINIO_ACCESS_KEY": "minio",
-          "MINIO_SECRET_KEY": "miniominio",
-          "AWS_S3_ENDPOINT_URL": "http://minio:1010",
-          "AWS_S3_BUCKET_NAME": "omnivore"
-        },
-        "internalPort": 8080,
-        "healthCheck": {
-          "test": "nc -z 0.0.0.0 8080 || exit 1",
-          "interval": "15s",
-          "timeout": "90s",
-          "retries": 6
-        },
-        "dependsOn": {
-          "migrate": {
-            "condition": "service_completed_successfully"
-          }
-        }
+      "user": "postgres"
+    },
+    {
+      "name": "migrate",
+      "image": "ghcr.io/omnivore-app/sh-migrate:latest",
+      "command": "/bin/sh ./packages/db/setup.sh",
+      "environment": {
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+        "POSTGRES_USER": "omnivore",
+        "POSTGRES_DB": "omnivore",
+        "POSTGRES_HOST": "postgres"
       },
-      {
-        "name": "queue-processor",
-        "image": "ghcr.io/omnivore-app/sh-queue-processor:latest",
-        "environment": {
-          "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
-          "POSTGRES_USER": "omnivore",
-          "POSTGRES_DB": "omnivore",
-          "POSTGRES_HOST": "postgres",
-          "JWT_SECRET": "${JWT_SECRET}",
-          "REDIS_HOST": "redis",
-          "REDIS_PORT": "6379"
-        },
-        "dependsOn": {
-          "api": {
-            "condition": "service_started"
-          }
-        }
-      },
-      {
-        "name": "web",
-        "image": "ghcr.io/omnivore-app/sh-web:latest",
-        "environment": {
-          "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
-          "POSTGRES_USER": "omnivore",
-          "POSTGRES_DB": "omnivore",
-          "POSTGRES_HOST": "postgres",
-          "JWT_SECRET": "${JWT_SECRET}",
-          "REDIS_HOST": "redis",
-          "REDIS_PORT": "6379"
-        },
-        "internalPort": 8080,
-        "dependsOn": {
-          "api": {
-            "condition": "service_healthy"
-          }
-        },
-        "isMain": true
-      },
-      {
-        "name": "image-proxy",
-        "image": "ghcr.io/omnivore-app/sh-image-proxy:latest",
-        "environment": {
-          "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
-          "POSTGRES_USER": "omnivore",
-          "POSTGRES_DB": "omnivore",
-          "POSTGRES_HOST": "postgres",
-          "JWT_SECRET": "${JWT_SECRET}"
-        },
-        "internalPort": 8080
-      },
-      {
-        "name": "content-fetch",
-        "image": "ghcr.io/omnivore-app/sh-content-fetch:latest",
-        "environment": {
-          "USE_FIREFOX": "true",
-          "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
-          "POSTGRES_USER": "omnivore",
-          "POSTGRES_DB": "omnivore",
-          "POSTGRES_HOST": "postgres",
-          "JWT_SECRET": "${JWT_SECRET}",
-          "REDIS_HOST": "redis",
-          "REDIS_PORT": "6379"
-        },
-        "internalPort": 8080,
-        "dependsOn": {
-          "redis": {
-            "condition": "service_healthy"
-          },
-          "api": {
-            "condition": "service_healthy"
-          }
-        }
-      },
-      {
-        "name": "redis",
-        "image": "redis:7.2.4",
-        "volumes": [
-          {
-            "hostPath": "${APP_DATA_DIR}/data/redis",
-            "containerPath": "/data",
-            "readOnly": false,
-            "shared": false,
-            "private": false
-          }
-        ],
-        "healthCheck": {
-          "test": "CMD redis-cli --raw incr ping"
-        }
-      },
-      {
-        "name": "minio",
-        "image": "minio/minio",
-        "command": "server /data",
-        "environment": {
-          "MINIO_ACCESS_KEY": "minio",
-          "MINIO_SECRET_KEY": "miniominio",
-          "AWS_S3_ENDPOINT_URL": "http://minio:1010"
-        },
-        "volumes": [
-          {
-            "hostPath": "${APP_DATA_DIR}/data/minio",
-            "containerPath": "/data",
-            "readOnly": false,
-            "shared": false,
-            "private": false
-          }
-        ],
-        "healthCheck": {
-          "test": "CMD mc ready local",
-          "interval": "5s",
-          "timeout": "1s"
-        }
-      },
-      {
-        "name": "createbuckets",
-        "image": "minio/mc",
-        "environment": {
-          "MINIO_ACCESS_KEY": "minio",
-          "MINIO_SECRET_KEY": "miniominio",
-          "BUCKET_NAME": "omnivore",
-          "ENDPOINT": "http://minio:9000",
-          "AWS_S3_ENDPOINT_URL": "http://minio:9000"
-        },
-        "entrypoint": "/bin/bash -c \" sleep 5; until (/usr/bin/mc config host add myminio http://minio:9000 minio miniominio) do echo '...waiting...' && sleep 1; done; /usr/bin/mc mb myminio/omnivore; /usr/bin/mc anonymous set public myminio/omnivore; exit 0; \"\n",
-        "dependsOn": {
-          "minio": {
-            "condition": "service_started"
-          }
-        }
-      },
-      {
-        "name": "mail-watch-server",
-        "image": "ghcr.io/omnivore-app/sh-local-mail-watcher:latest",
-        "environment": {
-          "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
-          "POSTGRES_USER": "omnivore",
-          "POSTGRES_DB": "omnivore",
-          "POSTGRES_HOST": "postgres",
-          "JWT_SECRET": "${JWT_SECRET}",
-          "REDIS_HOST": "redis",
-          "REDIS_PORT": "6379"
-        },
-        "internalPort": 8080,
-        "dependsOn": {
-          "redis": {
-            "condition": "service_healthy"
-          }
+      "dependsOn": {
+        "postgres": {
+          "condition": "service_healthy"
         }
       }
-    ]
-  }
+    },
+    {
+      "name": "api",
+      "image": "ghcr.io/omnivore-app/sh-backend:latest",
+      "environment": {
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+        "POSTGRES_USER": "omnivore",
+        "POSTGRES_DB": "omnivore",
+        "POSTGRES_HOST": "postgres",
+        "JWT_SECRET": "${JWT_SECRET}",
+        "ADMIN_EMAIL": "${ADMIN_EMAIL}",
+        "ADMIN_PASSWORD": "${ADMIN_PASSWORD}",
+        "REDIS_HOST": "redis",
+        "REDIS_PORT": "6379",
+        "MINIO_ACCESS_KEY": "minio",
+        "MINIO_SECRET_KEY": "miniominio",
+        "AWS_S3_ENDPOINT_URL": "http://minio:1010",
+        "AWS_S3_BUCKET_NAME": "omnivore"
+      },
+      "internalPort": 8080,
+      "healthCheck": {
+        "test": "nc -z 0.0.0.0 8080 || exit 1",
+        "interval": "15s",
+        "timeout": "90s",
+        "retries": 6
+      },
+      "dependsOn": {
+        "migrate": {
+          "condition": "service_completed_successfully"
+        }
+      }
+    },
+    {
+      "name": "queue-processor",
+      "image": "ghcr.io/omnivore-app/sh-queue-processor:latest",
+      "environment": {
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+        "POSTGRES_USER": "omnivore",
+        "POSTGRES_DB": "omnivore",
+        "POSTGRES_HOST": "postgres",
+        "JWT_SECRET": "${JWT_SECRET}",
+        "REDIS_HOST": "redis",
+        "REDIS_PORT": "6379"
+      },
+      "dependsOn": {
+        "api": {
+          "condition": "service_started"
+        }
+      }
+    },
+    {
+      "name": "web",
+      "image": "ghcr.io/omnivore-app/sh-web:latest",
+      "environment": {
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+        "POSTGRES_USER": "omnivore",
+        "POSTGRES_DB": "omnivore",
+        "POSTGRES_HOST": "postgres",
+        "JWT_SECRET": "${JWT_SECRET}",
+        "REDIS_HOST": "redis",
+        "REDIS_PORT": "6379"
+      },
+      "internalPort": 8080,
+      "dependsOn": {
+        "api": {
+          "condition": "service_healthy"
+        }
+      },
+      "isMain": true
+    },
+    {
+      "name": "image-proxy",
+      "image": "ghcr.io/omnivore-app/sh-image-proxy:latest",
+      "environment": {
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+        "POSTGRES_USER": "omnivore",
+        "POSTGRES_DB": "omnivore",
+        "POSTGRES_HOST": "postgres",
+        "JWT_SECRET": "${JWT_SECRET}"
+      },
+      "internalPort": 8080
+    },
+    {
+      "name": "content-fetch",
+      "image": "ghcr.io/omnivore-app/sh-content-fetch:latest",
+      "environment": {
+        "USE_FIREFOX": "true",
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+        "POSTGRES_USER": "omnivore",
+        "POSTGRES_DB": "omnivore",
+        "POSTGRES_HOST": "postgres",
+        "JWT_SECRET": "${JWT_SECRET}",
+        "REDIS_HOST": "redis",
+        "REDIS_PORT": "6379"
+      },
+      "internalPort": 8080,
+      "dependsOn": {
+        "redis": {
+          "condition": "service_healthy"
+        },
+        "api": {
+          "condition": "service_healthy"
+        }
+      }
+    },
+    {
+      "name": "redis",
+      "image": "redis:7.2.4",
+      "volumes": [
+        {
+          "hostPath": "${APP_DATA_DIR}/data/redis",
+          "containerPath": "/data",
+          "readOnly": false,
+          "shared": false,
+          "private": false
+        }
+      ],
+      "healthCheck": {
+        "test": "CMD redis-cli --raw incr ping"
+      }
+    },
+    {
+      "name": "minio",
+      "image": "minio/minio",
+      "command": "server /data",
+      "environment": {
+        "MINIO_ACCESS_KEY": "minio",
+        "MINIO_SECRET_KEY": "miniominio",
+        "AWS_S3_ENDPOINT_URL": "http://minio:1010"
+      },
+      "volumes": [
+        {
+          "hostPath": "${APP_DATA_DIR}/data/minio",
+          "containerPath": "/data",
+          "readOnly": false,
+          "shared": false,
+          "private": false
+        }
+      ],
+      "healthCheck": {
+        "test": "CMD mc ready local",
+        "interval": "5s",
+        "timeout": "1s"
+      }
+    },
+    {
+      "name": "createbuckets",
+      "image": "minio/mc",
+      "environment": {
+        "MINIO_ACCESS_KEY": "minio",
+        "MINIO_SECRET_KEY": "miniominio",
+        "BUCKET_NAME": "omnivore",
+        "ENDPOINT": "http://minio:9000",
+        "AWS_S3_ENDPOINT_URL": "http://minio:9000"
+      },
+      "entrypoint": "/bin/bash -c \" sleep 5; until (/usr/bin/mc config host add myminio http://minio:9000 minio miniominio) do echo '...waiting...' && sleep 1; done; /usr/bin/mc mb myminio/omnivore; /usr/bin/mc anonymous set public myminio/omnivore; exit 0; \"\n",
+      "dependsOn": {
+        "minio": {
+          "condition": "service_started"
+        }
+      }
+    },
+    {
+      "name": "mail-watch-server",
+      "image": "ghcr.io/omnivore-app/sh-local-mail-watcher:latest",
+      "environment": {
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+        "POSTGRES_USER": "omnivore",
+        "POSTGRES_DB": "omnivore",
+        "POSTGRES_HOST": "postgres",
+        "JWT_SECRET": "${JWT_SECRET}",
+        "REDIS_HOST": "redis",
+        "REDIS_PORT": "6379"
+      },
+      "internalPort": 8080,
+      "dependsOn": {
+        "redis": {
+          "condition": "service_healthy"
+        }
+      }
+    }
+  ]
+}
